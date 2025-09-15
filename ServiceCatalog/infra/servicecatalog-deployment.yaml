@@ -1,1 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: servicecatalog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: servicecatalog
+  template:
+    metadata:
+      labels:
+        app: servicecatalog
+    spec:
+      containers:
+        - name: servicecatalog
+          image: myregistry/servicecatalog:1.0.0
+          ports:
+            - containerPort: 3000
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: servicecatalog-db-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: servicecatalog-db-secret
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: servicecatalog-db-secret
+                  key: POSTGRES_DB
+            - name: POSTGRES_HOST
+              value: servicecatalog-db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: servicecatalog
+spec:
+  selector:
+    app: servicecatalog
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
 

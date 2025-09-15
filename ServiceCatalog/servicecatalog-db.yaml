@@ -1,1 +1,79 @@
-
+apiVersion: v1
+kind: Secret
+metadata:
+  name: servicecatalog-db-secret
+type: Opaque
+stringData:
+  POSTGRES_USER: servicecatalog
+  POSTGRES_PASSWORD: supersecret
+  POSTGRES_DB: servicecatalogdb
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: servicecatalog-db-init
+data:
+  init.sql: |
+    CREATE SCHEMA IF NOT EXISTS servicecatalog;
+    CREATE TABLE IF NOT EXISTS servicecatalog.services (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL
+    );
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: servicecatalog-db-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: servicecatalog-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: servicecatalog-db
+  template:
+    metadata:
+      labels:
+        app: servicecatalog-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: servicecatalog-db-secret
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: servicecatalog-db-pvc
+        - name: initdb
+          configMap:
+            name: servicecatalog-db-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: servicecatalog-db
+spec:
+  selector:
+    app: servicecatalog-db
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
